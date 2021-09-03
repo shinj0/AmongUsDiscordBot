@@ -50,8 +50,51 @@ client.on('message', (message) => {
         for (let member of channel.members) {
             member[1].setMute(false)
         }
-    console.log("b");
+    console.log("unmute");
      }
+});
+
+const gvcName = "一般";
+
+const {Readable}=require('stream');
+
+class Silence extends Readable{
+  _read(){this.push(Buffer.from([0xF8,0xFF,0xFE]))}
+};
+/**
+ * discord の client が ready 状態になってないと、
+ * client.channels..... を行えない。
+*/
+client.on("ready",()=>{
+console.info("ready...")
+client.channels.filter
+//グローバルボイスチャットが変数gvcNameと同じチャンネルを抽出
+(ch=>ch.type === "voice" && ch.name === gvcName)
+.forEach(ch=>
+{
+ch.join()//vcに参加
+.then(conn => {//connに参加したvcのデータが含まれる。
+
+      //音の流れない音データを配信 
+      //(最初にbotがVCで音データを流さないと音の取得ができないため。)
+      conn.playFile(new Silence,{ type: 'opus' });
+      let receiver = conn.receiver;
+      //だれかがVCで発言したら。
+      conn.on('speaking', (user, speaking) => {
+        //botだったら放送しない。
+        if(user.bot)return; 
+        //音を取得
+        const UserVoice = receiver.createStream(user);
+        const broadcast = client.voice.createBroadcast();
+        //流す音
+        broadcast.play(UserVoice,{ type: 'opus' });
+    //一斉にbotが接続中のVCに取得した音声を配信。
+    for (const connection of client.voice.connections.values()) {
+         connection.play(broadcast);
+    };
+        });
+    });
+});
 });
 
 
